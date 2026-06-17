@@ -1,0 +1,503 @@
+/* -------------------------------------------------------------------------- */
+/* Design Tokens & Theme Variables                                            */
+/* -------------------------------------------------------------------------- */
+
+:root {
+  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Space Mono', monospace;
+
+  /* Theme color scheme overrides */
+  --transition-speed: 0.3s;
+}
+
+/* Dark Theme Variables */
+html[data-theme='dark'] {
+  --bg-color: #030008;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  
+  --accent-color: #a855f7;
+  --accent-glow: rgba(168, 85, 247, 0.4);
+  --accent-hover: #c084fc;
+  
+  --glass-bg: rgba(15, 10, 25, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+  
+  --preset-bg: rgba(255, 255, 255, 0.04);
+  --preset-border: rgba(255, 255, 255, 0.08);
+  --preset-active-bg: rgba(168, 85, 247, 0.2);
+  --preset-active-border: #a855f7;
+  --preset-hover-bg: rgba(255, 255, 255, 0.08);
+}
+
+/* Light Theme Variables */
+html[data-theme='light'] {
+  --bg-color: #f8fafc;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  
+  --accent-color: #7c3aed;
+  --accent-glow: rgba(124, 58, 237, 0.25);
+  --accent-hover: #6d28d9;
+  
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+  
+  --preset-bg: rgba(0, 0, 0, 0.02);
+  --preset-border: rgba(0, 0, 0, 0.06);
+  --preset-active-bg: rgba(124, 58, 237, 0.1);
+  --preset-active-border: #7c3aed;
+  --preset-hover-bg: rgba(0, 0, 0, 0.05);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Base Resets                                                                */
+/* -------------------------------------------------------------------------- */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--bg-color);
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  transition: background-color var(--transition-speed) ease;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Layout Structure                                                           */
+/* -------------------------------------------------------------------------- */
+
+#canvas-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+#app-ui {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* Let clicks pass through to canvas when not hovering UI elements */
+  display: flex;
+  flex-direction: column;
+}
+
+#app-ui * {
+  pointer-events: auto; /* Re-enable pointer events for UI items */
+}
+
+/* Glassmorphism Panel Base */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: 16px;
+  transition: background-color var(--transition-speed) ease,
+              border-color var(--transition-speed) ease,
+              box-shadow var(--transition-speed) ease;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Components                                                                 */
+/* -------------------------------------------------------------------------- */
+
+/* Main Header */
+.main-header {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  right: 20px;
+  height: 64px;
+  padding: 0 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.main-header .logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.main-header .logo .icon {
+  font-size: 24px;
+  filter: drop-shadow(0 0 8px var(--accent-glow));
+}
+
+.main-header h1 {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  color: var(--text-primary);
+}
+
+/* Theme Toggle Button */
+.theme-btn {
+  background: none;
+  border: 1px solid var(--glass-border);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 16px;
+  transition: all 0.2s ease;
+  background-color: var(--preset-bg);
+}
+
+.theme-btn:hover {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 10px var(--accent-glow);
+  transform: scale(1.05);
+}
+
+html[data-theme='dark'] .theme-btn .icon-light {
+  display: block;
+}
+html[data-theme='dark'] .theme-btn .icon-dark {
+  display: none;
+}
+html[data-theme='light'] .theme-btn .icon-light {
+  display: none;
+}
+html[data-theme='light'] .theme-btn .icon-dark {
+  display: block;
+}
+
+/* Sidebar Controls */
+.controls-sidebar {
+  position: absolute;
+  top: 104px;
+  left: 20px;
+  bottom: 20px;
+  width: 320px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  overflow-y: auto;
+}
+
+/* Scrollbar for Sidebar */
+.controls-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+.controls-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.controls-sidebar::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: 3px;
+}
+.controls-sidebar::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+.panel-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panel-section h2 {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--accent-color);
+  font-weight: 700;
+}
+
+.panel-section p {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.panel-section .help-text {
+  font-size: 12.5px;
+  font-style: italic;
+  opacity: 0.8;
+}
+
+/* Preset Buttons Grid */
+.presets-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.presets-grid button:last-child {
+  grid-column: span 2;
+}
+
+.preset-btn {
+  background: var(--preset-bg);
+  border: 1px solid var(--preset-border);
+  color: var(--text-primary);
+  padding: 10px;
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.preset-btn:hover {
+  background: var(--preset-hover-bg);
+  border-color: var(--text-secondary);
+}
+
+.preset-btn.active {
+  background: var(--preset-active-bg);
+  border-color: var(--preset-active-border);
+  box-shadow: 0 0 12px var(--accent-glow);
+  color: var(--text-primary);
+}
+
+/* Sidebar Footer */
+.panel-footer {
+  margin-top: auto;
+  border-top: 1px solid var(--glass-border);
+  padding-top: 16px;
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.panel-footer .links {
+  display: flex;
+  gap: 6px;
+}
+
+.panel-footer .links a {
+  color: var(--accent-color);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.panel-footer .links a:hover {
+  text-decoration: underline;
+}
+
+/* Interaction Tip Overlay */
+.interaction-tip {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  padding: 10px 20px;
+  border-radius: 30px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  letter-spacing: 0.5px;
+}
+
+.interaction-tip .mouse-icon {
+  font-size: 14px;
+  animation: float 2s ease-in-out infinite;
+}
+
+/* -------------------------------------------------------------------------- */
+/* lil-gui Custom Styling (Premium Overrides)                                 */
+/* -------------------------------------------------------------------------- */
+
+.lil-gui {
+  --background-color: var(--glass-bg) !important;
+  --text-color: var(--text-primary) !important;
+  --title-background-color: rgba(0, 0, 0, 0.25) !important;
+  --widget-color: rgba(255, 255, 255, 0.05) !important;
+  --hover-color: rgba(168, 85, 247, 0.3) !important;
+  --focus-color: var(--accent-color) !important;
+  --number-color: var(--accent-color) !important;
+  --string-color: #10b981 !important;
+  font-family: var(--font-sans) !important;
+  font-size: 12px !important;
+  border-radius: 16px !important;
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: var(--glass-shadow) !important;
+  overflow: hidden !important;
+  top: 104px !important;
+  right: 20px !important;
+  z-index: 100 !important;
+  backdrop-filter: blur(16px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(140%) !important;
+  max-width: 300px !important;
+}
+
+.lil-gui .title {
+  font-weight: 600 !important;
+  letter-spacing: 0.5px !important;
+  text-transform: uppercase !important;
+  font-size: 11px !important;
+  color: var(--text-primary) !important;
+  border-bottom: 1px solid var(--glass-border) !important;
+  padding: 8px 12px !important;
+}
+
+.lil-gui .controller {
+  margin: 6px 0 !important;
+  padding: 0 12px !important;
+}
+
+.lil-gui input, .lil-gui select, .lil-gui button {
+  font-family: var(--font-sans) !important;
+  border-radius: 4px !important;
+  border: 1px solid var(--glass-border) !important;
+}
+
+.lil-gui .slider {
+  background: rgba(0, 0, 0, 0.2) !important;
+  border-radius: 4px !important;
+}
+
+.lil-gui .fill {
+  background: var(--accent-color) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Loading Screen                                                             */
+/* -------------------------------------------------------------------------- */
+
+#loading-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #030008;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.8s ease, visibility 0.8s ease;
+}
+
+#loading-screen.fade-out {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.loader-content {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.loader-spinner {
+  width: 60px;
+  height: 60px;
+  border: 3px solid rgba(168, 85, 247, 0.15);
+  border-radius: 50%;
+  border-top-color: var(--accent-color);
+  animation: spin 1s cubic-bezier(0.55, 0.25, 0.25, 0.8) infinite;
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.loader-content h1 {
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+  color: #f8fafc;
+}
+
+.loader-content p {
+  font-size: 14px;
+  color: #64748b;
+  font-family: var(--font-mono);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Animations & Media Queries                                                 */
+/* -------------------------------------------------------------------------- */
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* Responsive Collapsing for Mobile Devices */
+@media (max-width: 768px) {
+  .main-header {
+    height: 56px;
+    padding: 0 16px;
+  }
+  
+  .main-header h1 {
+    font-size: 16px;
+  }
+  
+  .controls-sidebar {
+    top: auto;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    width: auto;
+    height: 180px;
+    flex-direction: row;
+    gap: 20px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  
+  .panel-section {
+    min-width: 200px;
+    height: 100%;
+  }
+  
+  .panel-footer {
+    display: none;
+  }
+  
+  .interaction-tip {
+    display: none;
+  }
+
+  .lil-gui {
+    top: auto !important;
+    bottom: 210px !important;
+    right: 20px !important;
+    left: 20px !important;
+    max-width: none !important;
+    width: auto !important;
+  }
+}
