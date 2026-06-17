@@ -169,17 +169,19 @@ const targetLightPos = new THREE.Vector3(0, 0, 0);
 // Initialize Three.js Scene
 function init() {
   const container = document.getElementById('canvas-container')!;
+  const width = container.clientWidth;
+  const height = container.clientHeight;
   
   // 1. Scene & Fog
   scene = new THREE.Scene();
   
   // 2. Camera
-  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+  camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
   camera.position.set(0, 1.5, 4.5);
   
   // 3. Renderer
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(width, height);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
@@ -615,9 +617,15 @@ function setupThemeToggle() {
 // --------------------------------------------------------------------------
 
 function onMouseMove(event: MouseEvent) {
-  // Normalize coordinates: [-1, 1]
-  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  const container = document.getElementById('canvas-container')!;
+  const rect = container.getBoundingClientRect();
+  
+  // Normalize coordinates relative to the canvas size and offset
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+  
+  mouse.x = (x / rect.width) * 2 - 1;
+  mouse.y = -(y / rect.height) * 2 + 1;
   
   // Set light target coordinates inside the sphere
   targetLightPos.x = mouse.x * 0.75;
@@ -626,10 +634,14 @@ function onMouseMove(event: MouseEvent) {
 }
 
 function onWindowResize() {
-  camera.aspect = window.innerWidth / window.innerHeight;
+  const container = document.getElementById('canvas-container')!;
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+
+  camera.aspect = width / height;
   camera.updateProjectionMatrix();
   
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(width, height);
 }
 
 // --------------------------------------------------------------------------

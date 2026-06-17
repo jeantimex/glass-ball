@@ -310,6 +310,8 @@ let isMouseDown = false;
 
 function init() {
   const container = document.getElementById('canvas-container')!;
+  const width = container.clientWidth;
+  const height = container.clientHeight;
   
   // 1. Orthographic full-screen viewport setup
   scene = new THREE.Scene();
@@ -317,14 +319,14 @@ function init() {
   
   // 2. WebGL Renderer
   renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(width, height);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   container.appendChild(renderer.domElement);
   
   // 3. Shader Material with Uniforms
   const uniforms = {
     iTime: { value: 0.0 },
-    iResolution: { value: new THREE.Vector3(window.innerWidth, window.innerHeight, 1.0) },
+    iResolution: { value: new THREE.Vector3(width, height, 1.0) },
     iMouse: { value: iMouse },
     iChannel1: { value: createGroundNoiseTexture() },
     iChannel0: { value: null } // Passed as null, but declared inside GLSL
@@ -439,10 +441,14 @@ function setupMouseListeners(domElement: HTMLCanvasElement) {
 // --------------------------------------------------------------------------
 
 function onWindowResize() {
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  const container = document.getElementById('canvas-container')!;
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+  
+  renderer.setSize(width, height);
   shaderMaterial.uniforms.iResolution.value.set(
-    window.innerWidth,
-    window.innerHeight,
+    width,
+    height,
     1.0
   );
 }
