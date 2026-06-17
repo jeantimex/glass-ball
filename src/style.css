@@ -151,6 +151,42 @@ body, html {
   color: var(--text-primary);
 }
 
+/* Actions Wrapper in Header */
+.main-header .actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Nav Button Link */
+.nav-btn {
+  text-decoration: none;
+  background: var(--preset-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: var(--preset-bg);
+}
+
+.nav-btn:hover {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 10px var(--accent-glow);
+  transform: scale(1.03);
+}
+
+.nav-btn .btn-icon {
+  font-size: 14px;
+}
+
 /* Theme Toggle Button */
 .theme-btn {
   background: none;

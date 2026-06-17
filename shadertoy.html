@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Shadertoy Refractive Sphere (4ljXD3) | Exact Migration</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Mono&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <!-- Canvas for Shadertoy Shader -->
+    <div id="canvas-container"></div>
+
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+      <div class="loader-content">
+        <div class="loader-spinner"></div>
+        <h1>Compiling GLSL Shader...</h1>
+        <p>Initializing WebGL2 GLSL 3.00 es pipeline</p>
+      </div>
+    </div>
+
+    <!-- UI Overlay App -->
+    <div id="app-ui">
+      <!-- Top Header -->
+      <header class="glass-panel main-header">
+        <div class="logo">
+          <span class="icon">🌀</span>
+          <h1>Shadertoy 4ljXD3 Migration</h1>
+        </div>
+        <div class="actions">
+          <a href="index.html" class="nav-btn" title="Back to Simulator">
+            <span class="btn-icon">🔮</span> Main Simulator
+          </a>
+          <button id="theme-toggle" class="theme-btn" aria-label="Toggle Theme">
+            <span class="icon-light">☀️</span>
+            <span class="icon-dark">🌙</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Control Sidebar -->
+      <aside class="glass-panel controls-sidebar">
+        <div class="panel-section">
+          <h2>About 4ljXD3</h2>
+          <p>This page features the exact GLSL raytracing migration of the classic Shadertoy shader 4ljXD3 by <i>jeantimex</i>.</p>
+        </div>
+
+        <div class="panel-section">
+          <h2>Shader Mechanics</h2>
+          <p>The shader constructs a virtual 3D scene directly in the fragment shader:</p>
+          <ul style="font-size: 13px; color: var(--text-secondary); margin-left: 16px; display: flex; flex-direction: column; gap: 6px;">
+            <li><strong>Raytracing Loop:</strong> Traces camera rays and computes sphere intersections.</li>
+            <li><strong>4-Bounce Refraction:</strong> Lights refract inside a central glass sphere up to 4 times.</li>
+            <li><strong>Atmospheric Sky:</strong> Procedural sky, sun dome, and horizon gradient.</li>
+            <li><strong>Ground Floor:</strong> Procedural noise-mapping with fog attenuation.</li>
+            <li><strong>Sub-spheres:</strong> A dynamic array of orbiting mini-spheres.</li>
+          </ul>
+        </div>
+
+        <div class="panel-section">
+          <h2>Interaction</h2>
+          <p class="help-text">Click and drag on the screen to control the camera. If you do not click, the camera will auto-rotate using a sine-wave path.</p>
+        </div>
+
+        <div class="panel-footer">
+          <p>Exact GLSL 300 es WebGL2 port</p>
+          <div class="links">
+            <a href="https://www.shadertoy.com/view/4ljXD3" target="_blank">View on Shadertoy</a>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Interaction Tip -->
+      <div class="interaction-tip">
+        <span class="mouse-icon">🖱️</span> Click and Drag to rotate camera
+      </div>
+    </div>
+
+    <!-- Main Entry Script -->
+    <script type="module" src="/src/shadertoy.ts"></script>
+  </body>
+</html>
