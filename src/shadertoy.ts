@@ -220,7 +220,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 	vec2 uv = fragCoord.xy / iResolution.xy;
 	pos = vec3(0,1.0,0);
 	dir = vec3(uv*2.0-1.0,2.5);
-	dir.y *= 9.0/16.0; // wide screen
+	dir.y *= iResolution.y / iResolution.x; // dynamic aspect ratio correction
 	
 	dir = normalize(rotcam(dir));
     
