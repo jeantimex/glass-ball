@@ -19,6 +19,9 @@ uniform samplerCube iChannel0;
 
 // Custom uniform to control refraction
 uniform float uRefractRatio;
+uniform float uThickness;
+uniform float uFresnelBias;
+uniform float uFresnelPower;
 
 // Output variable for GLSL 300 es (Three.js provides gl_FragColor compatibility wrapper, but we declare it to be safe)
 out vec4 pc_fragColor;
@@ -112,7 +115,7 @@ float side; // 1 for raytracing outside glass,  -1 for raytracing inside glass
 
 vec3 glassColorFunc(float dist) // exponentioanly turn light green as it travels inside glass (real glass has this porperty)
 {
-    dist*=0.6;
+    dist *= uThickness;
 	return vec3(exp(dist*-0.4),exp(dist*-0.1),exp(dist*-0.2));
 }
 
@@ -155,8 +158,8 @@ vec3 get()
     {
 
         vec3 outside = normalize(reflect(dir,intersectNormal));
-        float f=min(1.-dot(outside,intersectNormal),1.0);
-        float fresnel = 0.05+0.95*pow(f,5.);
+        float f = clamp(1.0 - dot(outside, intersectNormal), 0.0, 1.0);
+        float fresnel = uFresnelBias + (1.0 - uFresnelBias) * pow(f, uFresnelPower);
 
         colorSum += backGround(outside)*colormul*fresnel;
         colormul *= 1.-fresnel;
@@ -195,8 +198,8 @@ vec3 get()
             vec3 refractVec = refract(dir, -intersectNormal, refractratio);
             if (dot(refractVec, refractVec) > 0.0001) {
                 vec3 outside = normalize(refractVec);
-                float f = min(1.0 - dot(outside, intersectNormal), 1.0);
-                float fresnel = 0.05 + 0.95 * pow(f, 5.0);
+                float f = clamp(1.0 - dot(outside, intersectNormal), 0.0, 1.0);
+                float fresnel = uFresnelBias + (1.0 - uFresnelBias) * pow(f, uFresnelPower);
                 colorSum += backGround(outside) * colormul * (1.0 - fresnel);
                 colormul *= fresnel;
             }
@@ -317,7 +320,10 @@ let isMouseDown = false;
 
 // Settings Panel Parameters
 const params = {
-  refractRatio: 1.5
+  refractRatio: 1.5,
+  thickness: 0.6,
+  fresnelBias: 0.05,
+  fresnelPower: 5.0
 };
 
 function init() {
@@ -346,7 +352,10 @@ function init() {
     iMouse: { value: iMouse },
     iChannel1: { value: createGroundNoiseTexture() },
     iChannel0: { value: null }, // Passed as null, but declared inside GLSL
-    uRefractRatio: { value: params.refractRatio }
+    uRefractRatio: { value: params.refractRatio },
+    uThickness: { value: params.thickness },
+    uFresnelBias: { value: params.fresnelBias },
+    uFresnelPower: { value: params.fresnelPower }
   };
   
   shaderMaterial = new THREE.ShaderMaterial({
@@ -368,11 +377,22 @@ function init() {
   scene.add(quadMesh);
   
   // 5. GUI panel setup for real-time optics control
-  const gui = new GUI({ title: 'Glass Refraction Control' });
-  gui.add(params, 'refractRatio', 1.0, 2.0, 0.01).name('Refractive Index (IOR)').onChange((val: number) => {
+  const gui = new GUI({ title: 'Raytraced Glass Settings' });
+  
+  const glassFolder = gui.addFolder('Refraction & Reflection');
+  glassFolder.add(params, 'refractRatio', 1.0, 2.5, 0.01).name('Glass IOR (Refraction)').onChange((val: number) => {
     shaderMaterial.uniforms.uRefractRatio.value = val;
   });
-  gui.open();
+  glassFolder.add(params, 'thickness', 0.0, 3.0, 0.05).name('Thickness (Density)').onChange((val: number) => {
+    shaderMaterial.uniforms.uThickness.value = val;
+  });
+  glassFolder.add(params, 'fresnelBias', 0.0, 0.5, 0.01).name('Fresnel Bias (Base Refl.)').onChange((val: number) => {
+    shaderMaterial.uniforms.uFresnelBias.value = val;
+  });
+  glassFolder.add(params, 'fresnelPower', 1.0, 10.0, 0.1).name('Fresnel Power').onChange((val: number) => {
+    shaderMaterial.uniforms.uFresnelPower.value = val;
+  });
+  glassFolder.open();
 
   // 6. Input Listeners
   window.addEventListener('resize', onWindowResize);
