@@ -323,10 +323,14 @@ function init() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   container.appendChild(renderer.domElement);
   
+  // Get drawing buffer size for physical pixel resolution
+  const size = new THREE.Vector2();
+  renderer.getDrawingBufferSize(size);
+  
   // 3. Shader Material with Uniforms
   const uniforms = {
     iTime: { value: 0.0 },
-    iResolution: { value: new THREE.Vector3(width, height, 1.0) },
+    iResolution: { value: new THREE.Vector3(size.x, size.y, 1.0) },
     iMouse: { value: iMouse },
     iChannel1: { value: createGroundNoiseTexture() },
     iChannel0: { value: null } // Passed as null, but declared inside GLSL
@@ -379,17 +383,19 @@ function setupMouseListeners(domElement: HTMLCanvasElement) {
   domElement.addEventListener('mousedown', (e) => {
     isMouseDown = true;
     const pos = getMousePos(e);
-    iMouse.x = pos.x;
-    iMouse.y = pos.y;
-    iMouse.z = pos.x;
-    iMouse.w = pos.y;
+    const dpr = window.devicePixelRatio;
+    iMouse.x = pos.x * dpr;
+    iMouse.y = pos.y * dpr;
+    iMouse.z = pos.x * dpr;
+    iMouse.w = pos.y * dpr;
   });
   
   window.addEventListener('mousemove', (e) => {
     if (!isMouseDown) return;
     const pos = getMousePos(e);
-    iMouse.x = pos.x;
-    iMouse.y = pos.y;
+    const dpr = window.devicePixelRatio;
+    iMouse.x = pos.x * dpr;
+    iMouse.y = pos.y * dpr;
   });
   
   window.addEventListener('mouseup', () => {
@@ -408,19 +414,21 @@ function setupMouseListeners(domElement: HTMLCanvasElement) {
     const rect = domElement.getBoundingClientRect();
     const touchX = touch.clientX - rect.left;
     const touchY = rect.bottom - touch.clientY;
+    const dpr = window.devicePixelRatio;
     
-    iMouse.x = touchX;
-    iMouse.y = touchY;
-    iMouse.z = touchX;
-    iMouse.w = touchY;
+    iMouse.x = touchX * dpr;
+    iMouse.y = touchY * dpr;
+    iMouse.z = touchX * dpr;
+    iMouse.w = touchY * dpr;
   });
   
   window.addEventListener('touchmove', (e) => {
     if (!isMouseDown || e.touches.length === 0) return;
     const touch = e.touches[0]!;
     const rect = domElement.getBoundingClientRect();
-    iMouse.x = touch.clientX - rect.left;
-    iMouse.y = rect.bottom - touch.clientY;
+    const dpr = window.devicePixelRatio;
+    iMouse.x = (touch.clientX - rect.left) * dpr;
+    iMouse.y = (rect.bottom - touch.clientY) * dpr;
   });
   
   window.addEventListener('touchend', () => {
@@ -439,9 +447,12 @@ function onWindowResize() {
   const height = window.innerHeight;
   
   renderer.setSize(width, height);
+  
+  const size = new THREE.Vector2();
+  renderer.getDrawingBufferSize(size);
   shaderMaterial.uniforms.iResolution.value.set(
-    width,
-    height,
+    size.x,
+    size.y,
     1.0
   );
 }
