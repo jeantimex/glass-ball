@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import GUI from 'lil-gui';
 import './style.css';
 
@@ -26,7 +27,12 @@ uniform vec3 uAbsorptionCoeff;
 uniform float uFogDensity;
 uniform float uShadowIntensity;
 uniform vec3 uSunDir;
-uniform float uRotationSpeed;
+
+// Orbit camera uniforms
+uniform mat4 uCamMatrixWorld;
+uniform vec3 uCamPosition;
+uniform float uTanHalfFov;
+uniform float uAspect;
 
 // Output variable for GLSL 300 es (Three.js provides gl_FragColor compatibility wrapper, but we declare it to be safe)
 out vec4 pc_fragColor;
@@ -85,34 +91,6 @@ vec3 backGround3(vec3 dir)
 	return td * pow(length(td)*sqrt(1.0/3.0),1.);
 }
 
-
-vec3 rotatex(vec3 v,float anglex)
-{
-	float t;
-	t =   v.y*cos(anglex) - v.z*sin(anglex);
-	v.z = v.z*cos(anglex) + v.y*sin(anglex);
-	v.y = t;
-	return v;
-}
-
-vec3 rotcam(vec3 v)
-{
-    float anglex = sin((iTime-3.0)*0.3*uRotationSpeed)*0.5+0.15;
-    float angley = iTime*0.2*uRotationSpeed-1.0;
-    
-    if (iMouse.x!=0.0) // use mouse only if user has clicked the screen
-    {
-    	anglex = (0.5 - iMouse.y/iResolution.y)*pee*1.2; // mouse cam
-    	angley = (-iMouse.x/iResolution.x+0.5)*pee*2.0;
-    }
- 
-	float t;
-	v = rotatex(v,anglex);
-	t = v.x * cos(angley) - v.z*sin(angley);
-	v.z = v.z*cos(angley) + v.x*sin(angley);
-	v.x = t;
-	return v;
-}
 
 float side; // 1 for raytracing outside glass,  -1 for raytracing inside glass
 
@@ -233,20 +211,20 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     refractratio = uRefractRatio;
 	float brightNess = min(iTime/5.0,1.0);
 	vec2 uv = fragCoord.xy / iResolution.xy;
-	pos = vec3(0,1.0,0);
-	dir = vec3(uv*2.0-1.0,2.5);
-	dir.y *= iResolution.y / iResolution.x; // dynamic aspect ratio correction
-	
-	dir = normalize(rotcam(dir));
+    vec2 ndc = uv * 2.0 - 1.0;
     
-	pos -= rotcam(vec3(0,0,5.6)); // back up from subject
-    if (pos.y<-heightAboveGround) // under ground
+    // Ray direction in camera space (Three.js camera looks down -Z)
+    vec3 rdCam = normalize(vec3(ndc.x * uAspect * uTanHalfFov, ndc.y * uTanHalfFov, -1.0));
+    
+    // Transform to world space using camera's world matrix rotation
+    dir = normalize((uCamMatrixWorld * vec4(rdCam, 0.0)).xyz);
+    pos = uCamPosition;
+    
+    // Safety check to ensure camera doesn't go below the floor height
+    if (pos.y < -heightAboveGround)
     {
-        vec3 dir2 = normalize(rotcam(vec3(0.,0.,1.)));
-        pos = pos - dir2*((pos.y+heightAboveGround) / dir2.y);
+        pos.y = -heightAboveGround;
     }
-	
-	
 		
 	fragColor = vec4(HDR(get()*brightNess),1.0); 
 }
@@ -314,10 +292,11 @@ function createGroundNoiseTexture(): THREE.CanvasTexture {
 // --------------------------------------------------------------------------
 
 let scene: THREE.Scene;
-let camera: THREE.OrthographicCamera;
+let camera: THREE.PerspectiveCamera;
 let renderer: THREE.WebGLRenderer;
 let shaderMaterial: THREE.ShaderMaterial;
 let quadMesh: THREE.Mesh;
+let controls: OrbitControls;
 
 // Mouse Interaction State
 const iMouse = new THREE.Vector4(0.0, 0.0, 0.0, 0.0);
@@ -367,15 +346,30 @@ function init() {
   updateAbsorption();
   updateSunDir();
   
-  // 1. Orthographic full-screen viewport setup
   scene = new THREE.Scene();
-  camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  
+  // 1. Perspective camera setup for OrbitControls
+  const fov = 45;
+  const aspect = width / height;
+  camera = new THREE.PerspectiveCamera(fov, aspect, 0.1, 100);
+  camera.position.set(0, 1.0 + Math.sin(0.15) * 5.6, Math.cos(0.15) * 5.6);
   
   // 2. WebGL Renderer
   renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setSize(width, height);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   container.appendChild(renderer.domElement);
+
+  // Initialize OrbitControls
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.set(0.0, 1.0, 0.0);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+  controls.maxPolarAngle = 2.1; // Limit tilt to avoid going too far below the floor
+  controls.minDistance = 2.0;   // Don't zoom inside the glass ball
+  controls.maxDistance = 20.0;  // Don't zoom out too far
+  controls.autoRotate = params.rotationSpeed > 0;
+  controls.autoRotateSpeed = params.rotationSpeed * 2.0;
   
   // Get drawing buffer size for physical pixel resolution
   const size = new THREE.Vector2();
@@ -396,7 +390,10 @@ function init() {
     uFogDensity: { value: params.fogDensity },
     uShadowIntensity: { value: params.shadowIntensity },
     uSunDir: { value: uSunDir },
-    uRotationSpeed: { value: params.rotationSpeed }
+    uCamPosition: { value: new THREE.Vector3() },
+    uCamMatrixWorld: { value: new THREE.Matrix4() },
+    uTanHalfFov: { value: Math.tan((camera.fov * Math.PI) / 360) },
+    uAspect: { value: camera.aspect }
   };
   
   shaderMaterial = new THREE.ShaderMaterial({
@@ -460,7 +457,8 @@ function init() {
   // Camera Settings folder
   const camFolder = gui.addFolder('Camera Settings');
   camFolder.add(params, 'rotationSpeed', 0.0, 3.0, 0.05).name('Camera Rot Speed').onChange((val: number) => {
-    shaderMaterial.uniforms.uRotationSpeed.value = val;
+    controls.autoRotate = val > 0;
+    controls.autoRotateSpeed = val * 2.0;
   });
   camFolder.open();
 
@@ -552,6 +550,9 @@ function onWindowResize() {
   
   renderer.setSize(width, height);
   
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
+  
   const size = new THREE.Vector2();
   renderer.getDrawingBufferSize(size);
   shaderMaterial.uniforms.iResolution.value.set(
@@ -559,6 +560,7 @@ function onWindowResize() {
     size.y,
     1.0
   );
+  shaderMaterial.uniforms.uAspect.value = camera.aspect;
 }
 
 function applyTheme(theme: 'light' | 'dark') {
@@ -578,6 +580,14 @@ function animate(timestamp: number) {
   // Track elapsed animation time
   timer.update(timestamp);
   shaderMaterial.uniforms.iTime.value = timer.getElapsed();
+  
+  // Update OrbitControls
+  controls.update();
+  
+  // Update camera uniforms
+  camera.updateMatrixWorld();
+  shaderMaterial.uniforms.uCamPosition.value.copy(camera.position);
+  shaderMaterial.uniforms.uCamMatrixWorld.value.copy(camera.matrixWorld);
   
   // Sync mouse uniform
   shaderMaterial.uniforms.iMouse.value.copy(iMouse);
