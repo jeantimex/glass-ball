@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import GUI from 'lil-gui';
 import './style.css';
 
 // --------------------------------------------------------------------------
@@ -41,89 +40,6 @@ const params = {
   autoRotate: true,
 };
 
-// Material Presets
-const presets = {
-  crystal: {
-    color: '#ffffff',
-    roughness: 0.02,
-    transmission: 1.0,
-    ior: 1.5,
-    thickness: 2.0,
-    clearcoat: 1.0,
-    clearcoatRoughness: 0.02,
-    attenuationColor: '#ffffff',
-    attenuationDistance: 1.0,
-    particleColor: '#a855f7',
-    particleSpeed: 1.0,
-    coreColor: '#a855f7',
-    coreEmissiveIntensity: 2.0,
-    innerLightIntensity: 5.0,
-  },
-  frosted: {
-    color: '#ffffff',
-    roughness: 0.45,
-    transmission: 0.95,
-    ior: 1.35,
-    thickness: 1.2,
-    clearcoat: 0.05,
-    clearcoatRoughness: 0.5,
-    attenuationColor: '#ffffff',
-    attenuationDistance: 2.0,
-    particleColor: '#00e5ff',
-    particleSpeed: 0.4,
-    coreColor: '#00e5ff',
-    coreEmissiveIntensity: 1.5,
-    innerLightIntensity: 3.0,
-  },
-  ruby: {
-    color: '#ff3b3b',
-    roughness: 0.05,
-    transmission: 1.0,
-    ior: 1.65,
-    thickness: 2.5,
-    clearcoat: 1.0,
-    clearcoatRoughness: 0.05,
-    attenuationColor: '#ff0000',
-    attenuationDistance: 0.5,
-    particleColor: '#ffd700',
-    particleSpeed: 1.8,
-    coreColor: '#ffd700',
-    coreEmissiveIntensity: 3.0,
-    innerLightIntensity: 8.0,
-  },
-  emerald: {
-    color: '#10b981',
-    roughness: 0.08,
-    transmission: 1.0,
-    ior: 1.6,
-    thickness: 2.2,
-    clearcoat: 1.0,
-    clearcoatRoughness: 0.08,
-    attenuationColor: '#047857',
-    attenuationDistance: 0.4,
-    particleColor: '#52ff88',
-    particleSpeed: 0.8,
-    coreColor: '#34d399',
-    coreEmissiveIntensity: 1.8,
-    innerLightIntensity: 4.0,
-  },
-  cyberpunk: {
-    color: '#0d001a',
-    roughness: 0.12,
-    transmission: 0.4,
-    ior: 1.8,
-    thickness: 3.5,
-    clearcoat: 1.0,
-    clearcoatRoughness: 0.15,
-    attenuationColor: '#7c3aed',
-    attenuationDistance: 0.8,
-    particleColor: '#ff007f',
-    particleSpeed: 2.5,
-    coreColor: '#ff007f',
-    coreEmissiveIntensity: 6.0,
-    innerLightIntensity: 12.0,
-  }
-};
 
 // --------------------------------------------------------------------------
 // Scene Variables & Initialization
@@ -133,7 +49,6 @@ let scene: THREE.Scene;
 let camera: THREE.PerspectiveCamera;
 let renderer: THREE.WebGLRenderer;
 let controls: OrbitControls;
-let gui: GUI;
 
 // Objects
 let ballMesh: THREE.Mesh;
@@ -298,25 +213,12 @@ function init() {
   
   initParticles();
   
-  // 11. Initial Theme Setup (reads index.html data-theme)
-  const initialTheme = document.documentElement.getAttribute('data-theme') as 'light' | 'dark' || 'dark';
-  applyTheme(initialTheme);
+  // 11. Initial Theme Setup
+  applyTheme('dark');
   
   // 12. Listeners
   window.addEventListener('resize', onWindowResize);
   window.addEventListener('mousemove', onMouseMove);
-  
-  setupThemeToggle();
-  setupPresets();
-  setupGUI();
-  
-  // Dismiss Loading Screen
-  setTimeout(() => {
-    const loader = document.getElementById('loading-screen');
-    if (loader) {
-      loader.classList.add('fade-out');
-    }
-  }, 500);
 }
 
 // --------------------------------------------------------------------------
@@ -417,149 +319,11 @@ function updateParticles(deltaTime: number) {
 // GUI Controls Setup
 // --------------------------------------------------------------------------
 
-function setupGUI() {
-  gui = new GUI({ title: 'Glass Properties' });
-  
-  // Folder 1: Material Physics
-  const matFolder = gui.addFolder('Glass Material');
-  matFolder.addColor(params, 'color').name('Base Color').onChange((val: string) => {
-    ballMaterial.color.set(val);
-  });
-  matFolder.add(params, 'roughness', 0.0, 1.0, 0.01).name('Roughness').onChange((val: number) => {
-    ballMaterial.roughness = val;
-  });
-  matFolder.add(params, 'transmission', 0.0, 1.0, 0.01).name('Transmission').onChange((val: number) => {
-    ballMaterial.transmission = val;
-  });
-  matFolder.add(params, 'ior', 1.0, 2.33, 0.01).name('Index (IOR)').onChange((val: number) => {
-    ballMaterial.ior = val;
-  });
-  matFolder.add(params, 'thickness', 0.0, 5.0, 0.1).name('Thickness').onChange((val: number) => {
-    ballMaterial.thickness = val;
-  });
-  matFolder.add(params, 'clearcoat', 0.0, 1.0, 0.01).name('Clearcoat').onChange((val: number) => {
-    ballMaterial.clearcoat = val;
-  });
-  matFolder.add(params, 'clearcoatRoughness', 0.0, 1.0, 0.01).name('Coat Rough').onChange((val: number) => {
-    ballMaterial.clearcoatRoughness = val;
-  });
-  matFolder.addColor(params, 'attenuationColor').name('Internal Tint').onChange((val: string) => {
-    ballMaterial.attenuationColor.set(val);
-  });
-  matFolder.add(params, 'attenuationDistance', 0.1, 5.0, 0.1).name('Tint Dist').onChange((val: number) => {
-    ballMaterial.attenuationDistance = val;
-  });
 
-  // Folder 2: Particle Simulation
-  const partFolder = gui.addFolder('Swarm Particles');
-  partFolder.add(params, 'particleCount', 10, 500, 5).name('Swarm Count').onChange(() => {
-    initParticles();
-  });
-  partFolder.add(params, 'particleSpeed', 0.0, 5.0, 0.1).name('Swarm Speed');
-  partFolder.add(params, 'particleSize', 0.005, 0.1, 0.005).name('Swarm Size').onChange((val: number) => {
-    particlesMaterial.size = val;
-  });
-  partFolder.addColor(params, 'particleColor').name('Swarm Color').onChange((val: string) => {
-    particlesMaterial.color.set(val);
-  });
-
-  // Folder 3: Core Node
-  const coreFolder = gui.addFolder('Energy Core');
-  coreFolder.addColor(params, 'coreColor').name('Core Color').onChange((val: string) => {
-    coreMaterial.color.set(val);
-    coreMaterial.emissive.set(val);
-    innerPointLight.color.set(val);
-  });
-  coreFolder.add(params, 'coreEmissiveIntensity', 0.0, 10.0, 0.1).name('Glow Power').onChange((val: number) => {
-    coreMaterial.emissiveIntensity = val;
-  });
-  coreFolder.add(params, 'coreRotateSpeed', 0.0, 4.0, 0.1).name('Spin Speed');
-  coreFolder.add(params, 'coreScale', 0.2, 2.0, 0.05).name('Core Size').onChange((val: number) => {
-    coreMesh.scale.set(val, val, val);
-  });
-
-  // Folder 4: Lighting Details
-  const lightFolder = gui.addFolder('Scene Lighting');
-  lightFolder.add(params, 'ambientIntensity', 0.0, 1.0, 0.05).name('Ambient Light').onChange((val: number) => {
-    ambientLight.intensity = val;
-  });
-  lightFolder.add(params, 'keyLightIntensity', 0.0, 3.0, 0.1).name('Key Light').onChange((val: number) => {
-    keyLight.intensity = val;
-  });
-  lightFolder.add(params, 'fillLightIntensity', 0.0, 2.0, 0.1).name('Fill Light').onChange((val: number) => {
-    fillLight.intensity = val;
-  });
-  lightFolder.add(params, 'innerLightIntensity', 0.0, 20.0, 0.5).name('Core Light').onChange((val: number) => {
-    innerPointLight.intensity = val;
-  });
-  
-  // Folder 5: Camera Options
-  const viewFolder = gui.addFolder('Interactions');
-  viewFolder.add(params, 'autoRotate').name('Auto Rotation').onChange((val: boolean) => {
-    controls.autoRotate = val;
-  });
-}
-
-function updateGuiDisplay(folder: GUI) {
-  folder.controllers.forEach(c => c.updateDisplay());
-  folder.folders.forEach(f => updateGuiDisplay(f));
-}
 
 // --------------------------------------------------------------------------
-// Presets Logic
+// Interactions & Sizing
 // --------------------------------------------------------------------------
-
-function setupPresets() {
-  const presetButtons = document.querySelectorAll('.preset-btn');
-  
-  presetButtons.forEach(button => {
-    button.addEventListener('click', () => {
-      // Manage CSS active state
-      presetButtons.forEach(b => b.classList.remove('active'));
-      button.classList.add('active');
-      
-      // Extract preset parameters
-      const presetKey = button.getAttribute('data-preset') as keyof typeof presets;
-      const preset = presets[presetKey];
-      if (!preset) return;
-      
-      // Copy preset to global params
-      Object.assign(params, preset);
-      
-      // Update materials and lights instantly
-      ballMaterial.color.set(params.color);
-      ballMaterial.roughness = params.roughness;
-      ballMaterial.transmission = params.transmission;
-      ballMaterial.ior = params.ior;
-      ballMaterial.thickness = params.thickness;
-      ballMaterial.clearcoat = params.clearcoat;
-      ballMaterial.clearcoatRoughness = params.clearcoatRoughness;
-      ballMaterial.attenuationColor.set(params.attenuationColor);
-      ballMaterial.attenuationDistance = params.attenuationDistance;
-      
-      particlesMaterial.color.set(params.particleColor);
-      particlesMaterial.size = params.particleSize;
-      
-      coreMaterial.color.set(params.coreColor);
-      coreMaterial.emissive.set(params.coreColor);
-      coreMaterial.emissiveIntensity = params.coreEmissiveIntensity;
-      
-      innerPointLight.color.set(params.coreColor);
-      innerPointLight.intensity = params.innerLightIntensity;
-      
-      // Regenerate particles
-      initParticles();
-      
-      // Update GUI sliders to match values
-      updateGuiDisplay(gui);
-    });
-  });
-}
-
-// --------------------------------------------------------------------------
-// Theme Swapper
-// --------------------------------------------------------------------------
-
 function applyTheme(theme: 'light' | 'dark') {
   document.documentElement.setAttribute('data-theme', theme);
   localStorage.setItem('gb-theme', theme);
@@ -600,21 +364,6 @@ function applyTheme(theme: 'light' | 'dark') {
     }
   }
 }
-
-function setupThemeToggle() {
-  const toggleBtn = document.getElementById('theme-toggle');
-  if (!toggleBtn) return;
-  
-  toggleBtn.addEventListener('click', () => {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-    applyTheme(newTheme);
-  });
-}
-
-// --------------------------------------------------------------------------
-// Interactions & Sizing
-// --------------------------------------------------------------------------
 
 function onMouseMove(event: MouseEvent) {
   const container = document.getElementById('canvas-container')!;

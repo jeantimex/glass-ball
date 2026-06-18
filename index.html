@@ -14,68 +14,6 @@
     <!-- Canvas for Three.js -->
     <div id="canvas-container"></div>
 
-    <!-- Loading Screen -->
-    <div id="loading-screen">
-      <div class="loader-content">
-        <div class="loader-spinner"></div>
-        <h1>Loading Glass Ball...</h1>
-        <p>Generating procedural lightmaps & shaders</p>
-      </div>
-    </div>
-
-    <!-- UI Overlay App -->
-    <div id="app-ui">
-      <!-- Top Header -->
-      <header class="glass-panel main-header">
-        <div class="logo">
-          <span class="icon">🔮</span>
-          <h1>Glass Ball Simulator</h1>
-        </div>
-        <button id="theme-toggle" class="theme-btn" aria-label="Toggle Theme">
-          <span class="icon-light">☀️</span>
-          <span class="icon-dark">🌙</span>
-        </button>
-      </header>
-
-      <!-- Control Sidebar -->
-      <aside class="glass-panel controls-sidebar">
-        <div class="panel-section">
-          <h2>About</h2>
-          <p>An interactive, physical glass shader simulation built with Three.js. Refraction, light scattering, and internal particle dynamics computed in real time.</p>
-        </div>
-
-        <div class="panel-section">
-          <h2>Material Presets</h2>
-          <div class="presets-grid">
-            <button class="preset-btn active" data-preset="crystal">Crystal</button>
-            <button class="preset-btn" data-preset="frosted">Frosted</button>
-            <button class="preset-btn" data-preset="ruby">Ruby Glass</button>
-            <button class="preset-btn" data-preset="emerald">Emerald</button>
-            <button class="preset-btn" data-preset="cyberpunk">Plasma Glow</button>
-          </div>
-        </div>
-
-        <div class="panel-section">
-          <h2>Interactive Controls</h2>
-          <p class="help-text">Use the control panel in the top-right to fine-tune material settings like transmission, index of refraction (IOR), and particle speeds. Move your cursor to shift the internal light source.</p>
-        </div>
-
-        <div class="panel-footer">
-          <p>Created with Three.js & Vite</p>
-          <div class="links">
-            <a href="https://threejs.org" target="_blank">Three.js Docs</a>
-            <span>•</span>
-            <a href="https://vite.dev" target="_blank">Vite</a>
-          </div>
-        </div>
-      </aside>
-
-      <!-- Interaction Tip -->
-      <div class="interaction-tip">
-        <span class="mouse-icon">🖱️</span> Drag to rotate • Scroll to zoom
-      </div>
-    </div>
-
     <!-- Main Entry Script -->
     <script type="module" src="/src/main.ts"></script>
   </body>

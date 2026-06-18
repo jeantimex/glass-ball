@@ -353,15 +353,9 @@ function init() {
   // 5. Input Listeners
   window.addEventListener('resize', onWindowResize);
   setupMouseListeners(renderer.domElement);
-  setupThemeToggle();
   
-  // Remove loading screen overlay once shader is initialized
-  setTimeout(() => {
-    const loader = document.getElementById('loading-screen');
-    if (loader) {
-      loader.classList.add('fade-out');
-    }
-  }, 400);
+  // Apply initial theme
+  applyTheme('dark');
 }
 
 // --------------------------------------------------------------------------
@@ -458,20 +452,7 @@ function applyTheme(theme: 'light' | 'dark') {
   localStorage.setItem('gb-theme', theme);
 }
 
-function setupThemeToggle() {
-  const toggleBtn = document.getElementById('theme-toggle');
-  if (!toggleBtn) return;
-  
-  // Read initial stored theme
-  const storedTheme = localStorage.getItem('gb-theme') as 'light' | 'dark' || 'dark';
-  applyTheme(storedTheme);
-  
-  toggleBtn.addEventListener('click', () => {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-    applyTheme(newTheme);
-  });
-}
+
 
 // --------------------------------------------------------------------------
 // Render Cycle Loop
