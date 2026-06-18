@@ -218,8 +218,8 @@ function init() {
     color: 0xffffff,
     roughness: 0.03,
     transmission: 1.0,  // Clear glass
-    ior: 1.5,           // Index of refraction of glass
-    thickness: 2.0,     // Wall thickness causing refraction shift
+    ior: 1.18,          // Reduced from 1.5 to reduce magnifying distortion
+    thickness: 1.0,     // Reduced from 2.0 to soften refractive bending
     clearcoat: 1.0,
     clearcoatRoughness: 0.03,
     metalness: 0.0,
