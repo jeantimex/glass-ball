@@ -22,13 +22,18 @@ uniform float uRefractRatio;
 uniform float uThickness;
 uniform float uFresnelBias;
 uniform float uFresnelPower;
+uniform vec3 uAbsorptionCoeff;
+uniform float uFogDensity;
+uniform float uShadowIntensity;
+uniform vec3 uSunDir;
+uniform float uRotationSpeed;
 
 // Output variable for GLSL 300 es (Three.js provides gl_FragColor compatibility wrapper, but we declare it to be safe)
 out vec4 pc_fragColor;
 #define gl_FragColor pc_fragColor
 
 // --- Start of Shadertoy Shader Code (view/4ljXD3) ---
-vec3 sunDir = normalize(vec3(0.0,0.3,1.0));
+#define sunDir uSunDir
 float refractratio; // Evaluated dynamically from uRefractRatio uniform
 float heightAboveGround = 2.0;
 
@@ -65,11 +70,11 @@ vec3 backGround(vec3 dir) // sky and floor texture with fog
 {
  	if (dir.y>=0.0) return sky(dir);
  	vec3 raypos2 = pos - dir*((pos.y+heightAboveGround) / dir.y);
-	float fog = exp(length(raypos2)/-20.0);
+	float fog = exp(length(raypos2)/-max(uFogDensity, 1.0));
     
     float sunshadow = 1.0;
     
-    if (length(cross(  raypos2-vec3(0.,1.,0.),sunDir))<1.0) sunshadow=0.6;
+    if (length(cross(  raypos2-vec3(0.,1.,0.),sunDir))<1.0) sunshadow = 1.0 - uShadowIntensity;
     
  	return sky(dir)*(1.0-fog)+(sunshadow*texture(iChannel1,raypos2.xz/8.0).xyz*0.6)*fog;
 }
@@ -92,8 +97,8 @@ vec3 rotatex(vec3 v,float anglex)
 
 vec3 rotcam(vec3 v)
 {
-    float anglex = sin((iTime-3.0)*0.3)*0.5+0.15;
-    float angley = iTime*0.2-1.0;
+    float anglex = sin((iTime-3.0)*0.3*uRotationSpeed)*0.5+0.15;
+    float angley = iTime*0.2*uRotationSpeed-1.0;
     
     if (iMouse.x!=0.0) // use mouse only if user has clicked the screen
     {
@@ -116,7 +121,7 @@ float side; // 1 for raytracing outside glass,  -1 for raytracing inside glass
 vec3 glassColorFunc(float dist) // exponentioanly turn light green as it travels inside glass (real glass has this porperty)
 {
     dist *= uThickness;
-	return vec3(exp(dist*-0.4),exp(dist*-0.1),exp(dist*-0.2));
+	return exp(dist * -uAbsorptionCoeff);
 }
 
 
@@ -323,13 +328,44 @@ const params = {
   refractRatio: 1.5,
   thickness: 0.6,
   fresnelBias: 0.05,
-  fresnelPower: 5.0
+  fresnelPower: 5.0,
+  glassColor: '#7cd9a8',
+  tintStrength: 0.5,
+  fogDensity: 20.0,
+  shadowIntensity: 0.4,
+  sunDirX: 0.0,
+  sunDirY: 0.3,
+  sunDirZ: 1.0,
+  rotationSpeed: 1.0
 };
+
+const uAbsorptionCoeff = new THREE.Vector3();
+const uSunDir = new THREE.Vector3();
+
+function updateAbsorption() {
+  const color = new THREE.Color(params.glassColor);
+  uAbsorptionCoeff.set(
+    (1.0 - color.r) * params.tintStrength * 1.6,
+    (1.0 - color.g) * params.tintStrength * 1.6,
+    (1.0 - color.b) * params.tintStrength * 1.6
+  );
+}
+
+function updateSunDir() {
+  uSunDir.set(params.sunDirX, params.sunDirY, params.sunDirZ);
+  if (uSunDir.lengthSq() < 0.0001) {
+    uSunDir.set(0.0, 0.3, 1.0);
+  }
+  uSunDir.normalize();
+}
 
 function init() {
   const container = document.getElementById('canvas-container')!;
   const width = window.innerWidth;
   const height = window.innerHeight;
+  
+  updateAbsorption();
+  updateSunDir();
   
   // 1. Orthographic full-screen viewport setup
   scene = new THREE.Scene();
@@ -355,7 +391,12 @@ function init() {
     uRefractRatio: { value: params.refractRatio },
     uThickness: { value: params.thickness },
     uFresnelBias: { value: params.fresnelBias },
-    uFresnelPower: { value: params.fresnelPower }
+    uFresnelPower: { value: params.fresnelPower },
+    uAbsorptionCoeff: { value: uAbsorptionCoeff },
+    uFogDensity: { value: params.fogDensity },
+    uShadowIntensity: { value: params.shadowIntensity },
+    uSunDir: { value: uSunDir },
+    uRotationSpeed: { value: params.rotationSpeed }
   };
   
   shaderMaterial = new THREE.ShaderMaterial({
@@ -392,7 +433,36 @@ function init() {
   glassFolder.add(params, 'fresnelPower', 1.0, 10.0, 0.1).name('Fresnel Power').onChange((val: number) => {
     shaderMaterial.uniforms.uFresnelPower.value = val;
   });
+  glassFolder.addColor(params, 'glassColor').name('Glass Tint (Color)').onChange(() => {
+    updateAbsorption();
+  });
+  glassFolder.add(params, 'tintStrength', 0.0, 1.0, 0.01).name('Tint Strength / Opacity').onChange(() => {
+    updateAbsorption();
+  });
   glassFolder.open();
+
+  // Environment & Shadow folder
+  const envFolder = gui.addFolder('Environment & Shadow');
+  envFolder.add(params, 'fogDensity', 5.0, 100.0, 1.0).name('Fog Scale / Distance').onChange((val: number) => {
+    shaderMaterial.uniforms.uFogDensity.value = val;
+  });
+  envFolder.add(params, 'shadowIntensity', 0.0, 1.0, 0.01).name('Shadow Opacity').onChange((val: number) => {
+    shaderMaterial.uniforms.uShadowIntensity.value = val;
+  });
+  const onSunDirChange = () => {
+    updateSunDir();
+  };
+  envFolder.add(params, 'sunDirX', -2.0, 2.0, 0.1).name('Sun X').onChange(onSunDirChange);
+  envFolder.add(params, 'sunDirY', -2.0, 2.0, 0.1).name('Sun Y').onChange(onSunDirChange);
+  envFolder.add(params, 'sunDirZ', -2.0, 2.0, 0.1).name('Sun Z').onChange(onSunDirChange);
+  envFolder.open();
+
+  // Camera Settings folder
+  const camFolder = gui.addFolder('Camera Settings');
+  camFolder.add(params, 'rotationSpeed', 0.0, 3.0, 0.05).name('Camera Rot Speed').onChange((val: number) => {
+    shaderMaterial.uniforms.uRotationSpeed.value = val;
+  });
+  camFolder.open();
 
   // 6. Input Listeners
   window.addEventListener('resize', onWindowResize);
