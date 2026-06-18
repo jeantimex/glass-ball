@@ -310,8 +310,8 @@ let isMouseDown = false;
 
 function init() {
   const container = document.getElementById('canvas-container')!;
-  const width = container.clientWidth;
-  const height = container.clientHeight;
+  const width = window.innerWidth;
+  const height = window.innerHeight;
   
   // 1. Orthographic full-screen viewport setup
   scene = new THREE.Scene();
@@ -435,9 +435,8 @@ function setupMouseListeners(domElement: HTMLCanvasElement) {
 // --------------------------------------------------------------------------
 
 function onWindowResize() {
-  const container = document.getElementById('canvas-container')!;
-  const width = container.clientWidth;
-  const height = container.clientHeight;
+  const width = window.innerWidth;
+  const height = window.innerHeight;
   
   renderer.setSize(width, height);
   shaderMaterial.uniforms.iResolution.value.set(

@@ -84,8 +84,8 @@ const targetLightPos = new THREE.Vector3(0, 0, 0);
 // Initialize Three.js Scene
 function init() {
   const container = document.getElementById('canvas-container')!;
-  const width = container.clientWidth;
-  const height = container.clientHeight;
+  const width = window.innerWidth;
+  const height = window.innerHeight;
   
   // 1. Scene & Fog
   scene = new THREE.Scene();
@@ -366,15 +366,9 @@ function applyTheme(theme: 'light' | 'dark') {
 }
 
 function onMouseMove(event: MouseEvent) {
-  const container = document.getElementById('canvas-container')!;
-  const rect = container.getBoundingClientRect();
-  
-  // Normalize coordinates relative to the canvas size and offset
-  const x = event.clientX - rect.left;
-  const y = event.clientY - rect.top;
-  
-  mouse.x = (x / rect.width) * 2 - 1;
-  mouse.y = -(y / rect.height) * 2 + 1;
+  // Normalize coordinates: [-1, 1] relative to the window
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
   
   // Set light target coordinates inside the sphere
   targetLightPos.x = mouse.x * 0.75;
@@ -383,9 +377,8 @@ function onMouseMove(event: MouseEvent) {
 }
 
 function onWindowResize() {
-  const container = document.getElementById('canvas-container')!;
-  const width = container.clientWidth;
-  const height = container.clientHeight;
+  const width = window.innerWidth;
+  const height = window.innerHeight;
 
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
