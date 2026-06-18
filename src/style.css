@@ -87,14 +87,6 @@ body, html {
   width: 100%;
   height: 100%;
   z-index: 0;
-  transition: left var(--transition-speed) ease, width var(--transition-speed) ease;
-}
-
-@media (min-width: 769px) {
-  #canvas-container {
-    left: 340px; /* Offset to clear the 320px sidebar + 20px left margin */
-    width: calc(100% - 340px);
-  }
 }
 
 #app-ui {
