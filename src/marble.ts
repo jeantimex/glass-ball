@@ -27,6 +27,7 @@ uniform vec3 uAbsorptionCoeff;
 uniform float uFogDensity;
 uniform float uShadowIntensity;
 uniform vec3 uSunDir;
+uniform int uInnerContent;
 
 // Orbit camera uniforms
 uniform mat4 uCamMatrixWorld;
@@ -155,15 +156,18 @@ vec3 get()
         {
             intersectPos = dir*1e10;
             side=1.;
-            for(int k=0;k<9;k++)
-             intersectsphere(vec3(0.8-0.1*float(k),0.7,0.),0.1);
-            
-            intersectsphere(vec3(-0.3,1.3,0.),0.1);
-            intersectsphere(vec3(0.5,1.4,0.),0.033);
-            intersectsphere(vec3(0.5,1.6,0.),0.033);
-            intersectsphere(vec3(0.2,1,0.8),0.1);
-            intersectsphere(vec3(0.2,1,-0.5),0.1);
-            intersectsphere(vec3(0.2,1,-0.7),0.14);
+            if (uInnerContent == 1)
+            {
+                for(int k=0;k<9;k++)
+                 intersectsphere(vec3(0.8-0.1*float(k),0.7,0.),0.1);
+                
+                intersectsphere(vec3(-0.3,1.3,0.),0.1);
+                intersectsphere(vec3(0.5,1.4,0.),0.033);
+                intersectsphere(vec3(0.5,1.6,0.),0.033);
+                intersectsphere(vec3(0.2,1,0.8),0.1);
+                intersectsphere(vec3(0.2,1,-0.5),0.1);
+                intersectsphere(vec3(0.2,1,-0.7),0.14);
+            }
 
             if (length(intersectPos)<1e9)
             {
@@ -315,7 +319,13 @@ const params = {
   sunDirX: 0.0,
   sunDirY: 0.3,
   sunDirZ: 1.0,
-  rotationSpeed: 1.0
+  rotationSpeed: 1.0,
+  innerContent: 'Red Balls'
+};
+
+const innerContentMap = {
+  'None': 0,
+  'Red Balls': 1
 };
 
 const uAbsorptionCoeff = new THREE.Vector3();
@@ -390,6 +400,7 @@ function init() {
     uFogDensity: { value: params.fogDensity },
     uShadowIntensity: { value: params.shadowIntensity },
     uSunDir: { value: uSunDir },
+    uInnerContent: { value: innerContentMap[params.innerContent as keyof typeof innerContentMap] },
     uCamPosition: { value: new THREE.Vector3() },
     uCamMatrixWorld: { value: new THREE.Matrix4() },
     uTanHalfFov: { value: Math.tan((camera.fov * Math.PI) / 360) },
@@ -416,6 +427,10 @@ function init() {
   
   // 5. GUI panel setup for real-time optics control
   const gui = new GUI({ title: 'Raytraced Glass Settings' });
+  
+  gui.add(params, 'innerContent', ['Red Balls', 'None']).name('Inner Content').onChange((val: string) => {
+    shaderMaterial.uniforms.uInnerContent.value = innerContentMap[val as keyof typeof innerContentMap];
+  });
   
   const glassFolder = gui.addFolder('Refraction & Reflection');
   glassFolder.add(params, 'refractRatio', 1.0, 2.5, 0.01).name('Glass IOR (Refraction)').onChange((val: number) => {
