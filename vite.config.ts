@@ -6,6 +6,7 @@ export default defineConfig({
       input: {
         main: 'index.html',
         shadertoy: 'shadertoy.html',
+        marble: 'marble.html',
       },
     },
   },
