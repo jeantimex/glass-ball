@@ -290,9 +290,9 @@ function loadCateyeSwirl() {
     // Position geometry at origin of parent group
     obj.position.sub(boxCenter);
     
-    // Scale model so its maximum dimension is ~1.45 (fits comfortably in sphere shell)
+    // Scale model so it sits nicely inside the sphere core (diameter ~0.95 of 2.0)
     const maxDim = Math.max(boxSize.x, boxSize.y, boxSize.z);
-    const scaleFactor = 1.45 / maxDim;
+    const scaleFactor = 0.95 / maxDim;
     obj.scale.set(scaleFactor, scaleFactor, scaleFactor);
     
     // 3. Add to scene
