@@ -125,7 +125,7 @@ float intersectsphere(vec3 center,float rad)
     rp -= dir*dot(dir,rp);
     if (length(rp)>1.0) return 0.;
     
-    float goback = sqrt(1.0-dot(rp,rp));
+    float goback = sqrt(max(1.0-dot(rp,rp), 0.0));
     rp -= side*dir*goback;
     
     vec3 ip = rp*rad + center;
@@ -468,13 +468,14 @@ function applyTheme(theme: 'light' | 'dark') {
 // Render Cycle Loop
 // --------------------------------------------------------------------------
 
-const clock = new THREE.Clock();
+const timer = new THREE.Timer();
 
-function animate() {
+function animate(timestamp: number) {
   requestAnimationFrame(animate);
   
   // Track elapsed animation time
-  shaderMaterial.uniforms.iTime.value = clock.getElapsedTime();
+  timer.update(timestamp);
+  shaderMaterial.uniforms.iTime.value = timer.getElapsed();
   
   // Sync mouse uniform
   shaderMaterial.uniforms.iMouse.value.copy(iMouse);
@@ -488,5 +489,5 @@ function animate() {
 
 window.addEventListener('DOMContentLoaded', () => {
   init();
-  animate();
+  requestAnimationFrame(animate);
 });

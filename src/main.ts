@@ -101,7 +101,7 @@ function init() {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   container.appendChild(renderer.domElement);
   
   // 4. Orbit Controls
@@ -390,13 +390,14 @@ function onWindowResize() {
 // Frame Rendering Loop
 // --------------------------------------------------------------------------
 
-const clock = new THREE.Clock();
+const timer = new THREE.Timer();
 
-function animate() {
+function animate(timestamp: number) {
   requestAnimationFrame(animate);
   
-  const time = clock.getElapsedTime();
-  const deltaTime = clock.getDelta();
+  timer.update(timestamp);
+  const time = timer.getElapsed();
+  const deltaTime = timer.getDelta();
   
   // 1. Hover/Dampen Internal light shifts
   innerPointLight.position.lerp(targetLightPos, 0.08);
@@ -428,5 +429,5 @@ function animate() {
 
 window.addEventListener('DOMContentLoaded', () => {
   init();
-  animate();
+  requestAnimationFrame(animate);
 });

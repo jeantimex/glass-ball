@@ -1,34 +1,279 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import GUI from 'lil-gui';
 import './style.css';
 
 // --------------------------------------------------------------------------
-// Procedural Texture Generators (Aesthetics)
+// WebGL2 Shader Program Configuration
 // --------------------------------------------------------------------------
 
-// Procedural organic sand/dirt ground texture
-function createGroundTexture(): THREE.CanvasTexture {
+const fragmentShaderSource = `
+precision highp float;
+precision highp int;
+
+// Shadertoy standard uniform declarations
+uniform float iTime;
+uniform vec3 iResolution;
+uniform vec4 iMouse;
+uniform sampler2D iChannel1;
+uniform samplerCube iChannel0;
+
+// Custom uniform to control refraction
+uniform float uRefractRatio;
+
+// Output variable for GLSL 300 es (Three.js provides gl_FragColor compatibility wrapper, but we declare it to be safe)
+out vec4 pc_fragColor;
+#define gl_FragColor pc_fragColor
+
+// --- Start of Shadertoy Shader Code (view/4ljXD3) ---
+vec3 sunDir = normalize(vec3(0.0,0.3,1.0));
+float refractratio; // Evaluated dynamically from uRefractRatio uniform
+float heightAboveGround = 2.0;
+
+// rotate camera
+#define pee 3.141592653
+vec3 pos;
+vec3 dir;
+ 
+vec3 backGround2() // unused checkerboard
+{
+	if (dir.y>0.0) return vec3(1,1,1);
+	vec2 floorcoords = pos.xz + dir.xz*(-pos.y/dir.y);
+	vec2 t = (fract(floorcoords.xy*0.5))-vec2(0.5,0.5);
+	return vec3(1,1,1) - vec3(0.6,0.3,0)*float(t.x*t.y>0.0);
+}
+
+vec3 sky(vec3 dir)
+{
+	float f = max(dir.y,0.0);
+	vec3 color = 1.0-vec3(1,0.85,0.7)*f;
+	color *= (dir.z*0.2+0.8)*1.7;
+	
+	if (dot(sunDir,dir)>0.0)
+	{
+	 f = max(length(cross(sunDir,dir))*10.0,1.0);
+		
+	 color += vec3(1,0.9,0.7)*40.0/(f*f*f*f);
+	}
+	return color;
+	
+}
+
+vec3 backGround(vec3 dir) // sky and floor texture with fog
+{
+ 	if (dir.y>=0.0) return sky(dir);
+ 	vec3 raypos2 = pos - dir*((pos.y+heightAboveGround) / dir.y);
+	float fog = exp(length(raypos2)/-20.0);
+    
+    float sunshadow = 1.0;
+    
+    if (length(cross(  raypos2-vec3(0.,1.,0.),sunDir))<1.0) sunshadow=0.6;
+    
+ 	return sky(dir)*(1.0-fog)+(sunshadow*texture(iChannel1,raypos2.xz/8.0).xyz*0.6)*fog;
+}
+
+vec3 backGround3(vec3 dir) 
+{
+    vec3 td = texture(iChannel0, dir).xyz;
+	return td * pow(length(td)*sqrt(1.0/3.0),1.);
+}
+
+
+vec3 rotatex(vec3 v,float anglex)
+{
+	float t;
+	t =   v.y*cos(anglex) - v.z*sin(anglex);
+	v.z = v.z*cos(anglex) + v.y*sin(anglex);
+	v.y = t;
+	return v;
+}
+
+vec3 rotcam(vec3 v)
+{
+    float anglex = sin((iTime-3.0)*0.3)*0.5+0.15;
+    float angley = iTime*0.2-1.0;
+    
+    if (iMouse.x!=0.0) // use mouse only if user has clicked the screen
+    {
+    	anglex = (0.5 - iMouse.y/iResolution.y)*pee*1.2; // mouse cam
+    	angley = (-iMouse.x/iResolution.x+0.5)*pee*2.0;
+    }
+ 
+	float t;
+	v = rotatex(v,anglex);
+	t = v.x * cos(angley) - v.z*sin(angley);
+	v.z = v.z*cos(angley) + v.x*sin(angley);
+	v.x = t;
+	return v;
+}
+
+float side; // 1 for raytracing outside glass,  -1 for raytracing inside glass
+
+
+
+vec3 glassColorFunc(float dist) // exponentioanly turn light green as it travels inside glass (real glass has this porperty)
+{
+    dist*=0.6;
+	return vec3(exp(dist*-0.4),exp(dist*-0.1),exp(dist*-0.2));
+}
+
+
+vec3 intersectPos;
+vec3 intersectNormal;
+
+float intersectsphere(vec3 center,float rad)
+{
+    vec3 rp = pos-center;
+    rp/=rad;
+    rp -= dir*dot(dir,rp);
+    if (length(rp)>1.0) return 0.;
+    
+    // Fixed: Added max(..., 0.0) to prevent negative square root domain errors causing black noise at tangent angles
+    float goback = sqrt(max(1.0-dot(rp,rp), 0.0));
+    rp -= side*dir*goback;
+    
+    vec3 ip = rp*rad + center;
+    
+    if (dot(dir,ip-intersectPos)<0.0) // check if this is the closest intersection
+    { 
+        intersectNormal = rp;
+    	intersectPos = ip;
+    }
+    return 1.;
+}
+
+vec3 get()
+{
+    side = 1.;
+    vec3 colorSum = vec3(0.);
+    vec3 colormul = vec3(1.);
+    
+    
+        
+    intersectPos = dir*1e10;
+    if (intersectsphere(vec3(0.,1.,0.),1.0)!=0.)  // sphere hit by initial camera ray
+        
+    {
+
+        vec3 outside = normalize(reflect(dir,intersectNormal));
+        float f=min(1.-dot(outside,intersectNormal),1.0);
+        float fresnel = 0.05+0.95*pow(f,5.);
+
+        colorSum += backGround(outside)*colormul*fresnel;
+        colormul *= 1.-fresnel;
+        
+        side=-1.;
+        pos = intersectPos;   // continue at the intersection point
+        dir = refract(dir,intersectNormal,1.0/refractratio);  // light gets inside the sphere
+        
+        for(int p=0;p<4;p++) // bouncing inside sphere
+        {
+            intersectPos = dir*1e10;
+            side=1.;
+            for(int k=0;k<9;k++)
+             intersectsphere(vec3(0.8-0.1*float(k),0.7,0.),0.1);
+            
+            intersectsphere(vec3(-0.3,1.3,0.),0.1);
+            intersectsphere(vec3(0.5,1.4,0.),0.033);
+            intersectsphere(vec3(0.5,1.6,0.),0.033);
+            intersectsphere(vec3(0.2,1,0.8),0.1);
+            intersectsphere(vec3(0.2,1,-0.5),0.1);
+            intersectsphere(vec3(0.2,1,-0.7),0.14);
+
+            if (length(intersectPos)<1e9)
+            {
+                colormul *= glassColorFunc(length(intersectPos-pos));
+                colorSum += (dot(intersectNormal,sunDir)*0.5+0.5)*vec3(1.0,0.3,0.1)*colormul*0.8;
+                return colorSum;
+            }
+            
+            side=-1.;
+            intersectsphere(vec3(0.,1.,0.),1.0);
+            colormul *= glassColorFunc(length(intersectPos-pos));
+            pos = intersectPos;
+            
+            // Fixed: Added guard checking refractVec validation for Total Internal Reflection to prevent normalize(vec3(0)) -> NaN
+            vec3 refractVec = refract(dir, -intersectNormal, refractratio);
+            if (dot(refractVec, refractVec) > 0.0001) {
+                vec3 outside = normalize(refractVec);
+                float f = min(1.0 - dot(outside, intersectNormal), 1.0);
+                float fresnel = 0.05 + 0.95 * pow(f, 5.0);
+                colorSum += backGround(outside) * colormul * (1.0 - fresnel);
+                colormul *= fresnel;
+            }
+            dir = reflect(dir,-intersectNormal);
+            
+        }
+    }
+    else return backGround(dir); // initial camera ray missed sphere, goes directly to background
+    
+    return colorSum;
+}
+
+		
+float func(float x) // the func for HDR
+{
+	return x/(x+3.0)*3.0;
+}
+vec3 HDR(vec3 color)
+{
+	float powVal = length(color);
+	return color * func(powVal)/powVal*1.2;
+}
+
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+    refractratio = uRefractRatio;
+	float brightNess = min(iTime/5.0,1.0);
+	vec2 uv = fragCoord.xy / iResolution.xy;
+	pos = vec3(0,1.0,0);
+	dir = vec3(uv*2.0-1.0,2.5);
+	dir.y *= iResolution.y / iResolution.x; // dynamic aspect ratio correction
+	
+	dir = normalize(rotcam(dir));
+    
+	pos -= rotcam(vec3(0,0,5.6)); // back up from subject
+    if (pos.y<-heightAboveGround) // under ground
+    {
+        vec3 dir2 = normalize(rotcam(vec3(0.,0.,1.)));
+        pos = pos - dir2*((pos.y+heightAboveGround) / dir2.y);
+    }
+	
+	
+		
+	fragColor = vec4(HDR(get()*brightNess),1.0); 
+}
+// --- End of Shadertoy Shader Code ---
+
+void main() {
+  mainImage(gl_FragColor, gl_FragCoord.xy);
+}
+`;
+
+// --------------------------------------------------------------------------
+// Ground Noise Texture Generator
+// --------------------------------------------------------------------------
+
+function createGroundNoiseTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 512;
   const ctx = canvas.getContext('2d')!;
   
-  // Base earth color
-  ctx.fillStyle = '#6e5138';
+  // Earthy background
+  ctx.fillStyle = '#7a5a38';
   ctx.fillRect(0, 0, 512, 512);
   
-  // Soft splotches
-  for (let i = 0; i < 250; i++) {
+  // Layer organic dirt splotches
+  for (let i = 0; i < 300; i++) {
     const x = Math.random() * 512;
     const y = Math.random() * 512;
-    const r = 8 + Math.random() * 32;
+    const r = 5 + Math.random() * 30;
     
     const colors = [
-      'rgba(80, 56, 36, 0.7)',
-      'rgba(125, 95, 68, 0.6)',
-      'rgba(50, 35, 20, 0.8)',
-      'rgba(145, 120, 95, 0.4)'
+      'rgba(90, 62, 38, 0.7)',
+      'rgba(140, 105, 75, 0.6)',
+      'rgba(60, 42, 24, 0.8)',
+      'rgba(160, 130, 100, 0.4)'
     ];
     
     ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
@@ -37,311 +282,216 @@ function createGroundTexture(): THREE.CanvasTexture {
     ctx.fill();
   }
   
-  // High-frequency sand grain noise
+  // Generate high-frequency noise mapping
   const imgData = ctx.getImageData(0, 0, 512, 512);
   const data = imgData.data;
   for (let i = 0; i < data.length; i += 4) {
-    const noise = (Math.random() - 0.5) * 30;
-    data[i] = Math.min(255, Math.max(0, data[i] + noise));
-    data[i+1] = Math.min(255, Math.max(0, data[i+1] + noise));
-    data[i+2] = Math.min(255, Math.max(0, data[i+2] + noise));
+    const noise = (Math.random() - 0.5) * 35;
+    data[i] = Math.min(255, Math.max(0, data[i] + noise));     // Red
+    data[i+1] = Math.min(255, Math.max(0, data[i+1] + noise)); // Green
+    data[i+2] = Math.min(255, Math.max(0, data[i+2] + noise)); // Blue
   }
   ctx.putImageData(imgData, 0, 0);
   
   const texture = new THREE.CanvasTexture(canvas);
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(6, 6);
   texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.magFilter = THREE.LinearFilter;
   return texture;
 }
 
-// Procedural sky dome gradient background
-function createSkyTexture(): THREE.CanvasTexture {
-  const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 512;
-  const ctx = canvas.getContext('2d')!;
-  
-  // Sunset vertical gradient
-  const grad = ctx.createLinearGradient(0, 0, 0, 512);
-  grad.addColorStop(0, '#0c0822');   // Cosmic top sky
-  grad.addColorStop(0.4, '#1b1236');  // Mid twilight transition
-  grad.addColorStop(0.7, '#da8c66');  // Warm horizon sunset glow
-  grad.addColorStop(0.85, '#ffd1a3'); // Soft sun highlight at ground transition
-  grad.addColorStop(1, '#0e0a05');   // Ground shadow
-  
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 512, 512);
-  
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
-}
-
-// Procedural environment map canvas texture for rich glass refractions
-function createProceduralEnvMap(): THREE.CanvasTexture {
-  const canvas = document.createElement('canvas');
-  canvas.width = 1024;
-  canvas.height = 512;
-  const ctx = canvas.getContext('2d')!;
-  
-  // Base dark ambient
-  const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  grad.addColorStop(0, '#0e092b');
-  grad.addColorStop(0.5, '#05030e');
-  grad.addColorStop(1, '#010005');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  
-  function drawGlow(x: number, y: number, r: number, color: string) {
-    const radial = ctx.createRadialGradient(x, y, 0, x, y, r);
-    radial.addColorStop(0, color);
-    radial.addColorStop(0.8, color.replace(/[\d.]+\)$/, '0.1)'));
-    radial.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = radial;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  
-  // Neon glowing spots representing environment light panels reflecting in the marble
-  drawGlow(250, 256, 220, 'rgba(168, 85, 247, 0.5)'); // Purple
-  drawGlow(770, 256, 220, 'rgba(0, 229, 255, 0.5)');  // Cyan
-  drawGlow(512, 100, 160, 'rgba(255, 0, 128, 0.45)'); // Pink
-  drawGlow(400, 200, 90, 'rgba(255, 250, 220, 0.4)');  // Light gold
-  
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.mapping = THREE.EquirectangularReflectionMapping;
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
-}
-
 // --------------------------------------------------------------------------
-// Core Scene Elements
+// Application Variables & Lifecycle
 // --------------------------------------------------------------------------
 
 let scene: THREE.Scene;
-let camera: THREE.PerspectiveCamera;
+let camera: THREE.OrthographicCamera;
 let renderer: THREE.WebGLRenderer;
-let controls: OrbitControls;
+let shaderMaterial: THREE.ShaderMaterial;
+let quadMesh: THREE.Mesh;
 
-// Simulation Objects
-let marbleGroup: THREE.Group;
-let glassOuterMesh: THREE.Mesh;
-let cateyeInnerGroup: THREE.Group;
+// Mouse Interaction State
+const iMouse = new THREE.Vector4(0.0, 0.0, 0.0, 0.0);
+let isMouseDown = false;
 
+// Settings Panel Parameters
+const params = {
+  refractRatio: 1.5
+};
 
 function init() {
   const container = document.getElementById('canvas-container')!;
   const width = window.innerWidth;
   const height = window.innerHeight;
   
-  // 1. Scene setup with warm horizon twilight fog
+  // 1. Orthographic full-screen viewport setup
   scene = new THREE.Scene();
-  scene.background = createSkyTexture();
-  scene.fog = new THREE.FogExp2(0x130a21, 0.08); // exponential fog
+  camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   
-  // 2. Camera
-  camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-  camera.position.set(0, 1.2, 4.0);
-  
-  // 3. Renderer
+  // 2. WebGL Renderer
   renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setSize(width, height);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.0;
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   container.appendChild(renderer.domElement);
   
-  // 4. Orbit Controls
-  controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.05;
-  controls.minDistance = 1.5;
-  controls.maxDistance = 10.0;
-  controls.maxPolarAngle = Math.PI / 2 + 0.05; // limit looking below ground
+  // Get drawing buffer size for physical pixel resolution
+  const size = new THREE.Vector2();
+  renderer.getDrawingBufferSize(size);
   
-  // 5. Environmental Reflection Map
-  scene.environment = createProceduralEnvMap();
+  // 3. Shader Material with Uniforms
+  const uniforms = {
+    iTime: { value: 0.0 },
+    iResolution: { value: new THREE.Vector3(size.x, size.y, 1.0) },
+    iMouse: { value: iMouse },
+    iChannel1: { value: createGroundNoiseTexture() },
+    iChannel0: { value: null }, // Passed as null, but declared inside GLSL
+    uRefractRatio: { value: params.refractRatio }
+  };
   
-  // 6. Lights
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.25);
-  scene.add(ambientLight);
-  
-  const keyLight = new THREE.DirectionalLight(0xffffff, 2.0);
-  keyLight.position.set(5, 8, 5);
-  keyLight.castShadow = true;
-  keyLight.shadow.mapSize.width = 1024;
-  keyLight.shadow.mapSize.height = 1024;
-  keyLight.shadow.bias = -0.0001;
-  scene.add(keyLight);
-  
-  const rimLight = new THREE.DirectionalLight(0x00e5ff, 1.0);
-  rimLight.position.set(-5, 4, -5);
-  scene.add(rimLight);
-  
-  // Focused spotlight to cast a sharp floor shadow
-  const spotLight = new THREE.SpotLight(0xffffff, 5.0, 15, Math.PI / 6, 0.5, 1);
-  spotLight.position.set(0, 5, 0);
-  spotLight.target.position.set(0, 0, 0);
-  spotLight.castShadow = true;
-  spotLight.shadow.mapSize.width = 1024;
-  spotLight.shadow.mapSize.height = 1024;
-  spotLight.shadow.bias = -0.0001;
-  scene.add(spotLight);
-  
-  // 7. Ground floor plane
-  const floorGeom = new THREE.PlaneGeometry(50, 50);
-  const floorMat = new THREE.MeshStandardMaterial({
-    map: createGroundTexture(),
-    roughness: 0.65,
-    metalness: 0.05,
-  });
-  const floorMesh = new THREE.Mesh(floorGeom, floorMat);
-  floorMesh.rotation.x = -Math.PI / 2;
-  floorMesh.position.y = -1.2;
-  floorMesh.receiveShadow = true;
-  scene.add(floorMesh);
-  
-  // 8. Marble Parent Group (Handles orbital rotations and float oscillations)
-  marbleGroup = new THREE.Group();
-  marbleGroup.position.set(0, 0, 0);
-  scene.add(marbleGroup);
-  
-  // Outer Physical Glass Shell of the Marble
-  const glassGeom = new THREE.SphereGeometry(1.0, 64, 64);
-  const glassMat = new THREE.MeshPhysicalMaterial({
-    color: 0xffffff,
-    roughness: 0.03,
-    transmission: 1.0,  // Clear glass
-    ior: 1.18,          // Reduced from 1.5 to reduce magnifying distortion
-    thickness: 1.0,     // Reduced from 2.0 to soften refractive bending
-    clearcoat: 1.0,
-    clearcoatRoughness: 0.03,
-    metalness: 0.0,
-    transparent: true,
-    shadowSide: THREE.DoubleSide
-  });
-  
-  glassOuterMesh = new THREE.Mesh(glassGeom, glassMat);
-  glassOuterMesh.castShadow = true;
-  glassOuterMesh.receiveShadow = true;
-  marbleGroup.add(glassOuterMesh);
-  
-  // Inner Cateye Group (Holds loaded OBJ meshes)
-  cateyeInnerGroup = new THREE.Group();
-  marbleGroup.add(cateyeInnerGroup);
-  
-  // 9. Load Cat's Eye OBJ Mesh & Swirl Texture
-  loadCateyeSwirl();
-  
-  // 10. Listeners
-  window.addEventListener('resize', onWindowResize);
-}
-
-// --------------------------------------------------------------------------
-// OBJ Loading & Scaling
-// --------------------------------------------------------------------------
-
-function loadCateyeSwirl() {
-  const textureLoader = new THREE.TextureLoader();
-  
-  // Load the detailed colorful glass swirl texture
-  const colorTexture = textureLoader.load('/cateye/texture_006.jpg', (tex) => {
-    tex.wrapS = THREE.RepeatWrapping;
-    tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(1, 1);
-  });
-  colorTexture.colorSpace = THREE.SRGBColorSpace;
-  
-  // High quality gloss material for the internal vanes
-  const cateyeMaterial = new THREE.MeshStandardMaterial({
-    map: colorTexture,
-    roughness: 0.1,
-    metalness: 0.1,
-    side: THREE.DoubleSide, // Essential as OBJ contains ribbon sheets
-  });
-  
-  const objLoader = new OBJLoader();
-  
-  // Load Cateye10.obj - the detailed 4-vane swirl
-  objLoader.load('/cateye/Cateye10.obj', (obj) => {
-    // 1. Assign materials and enable shadow mapping
-    obj.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        child.material = cateyeMaterial;
-        child.castShadow = true;
-        child.receiveShadow = true;
-        
-        // Force compute vertex normals if missing, to ensure smooth shading
-        child.geometry.computeVertexNormals();
+  shaderMaterial = new THREE.ShaderMaterial({
+    uniforms: uniforms,
+    vertexShader: `
+      void main() {
+        gl_Position = vec4(position, 1.0);
       }
-    });
+    `,
+    fragmentShader: fragmentShaderSource,
+    glslVersion: THREE.GLSL3, // Tells Three.js to construct a GLSL 3.00 es compiler target
+    depthWrite: false,
+    depthTest: false
+  });
+  
+  // 4. Quad mesh spanning full viewport dimensions
+  const quadGeometry = new THREE.PlaneGeometry(2, 2);
+  quadMesh = new THREE.Mesh(quadGeometry, shaderMaterial);
+  scene.add(quadMesh);
+  
+  // 5. GUI panel setup for real-time optics control
+  const gui = new GUI({ title: 'Glass Refraction Control' });
+  gui.add(params, 'refractRatio', 1.0, 2.0, 0.01).name('Refractive Index (IOR)').onChange((val: number) => {
+    shaderMaterial.uniforms.uRefractRatio.value = val;
+  });
+  gui.open();
+
+  // 6. Input Listeners
+  window.addEventListener('resize', onWindowResize);
+  setupMouseListeners(renderer.domElement);
+  
+  // Apply initial theme
+  applyTheme('dark');
+}
+
+// --------------------------------------------------------------------------
+// Mouse Tracker Interface (Simulating Shadertoy Click behavior)
+// --------------------------------------------------------------------------
+
+function setupMouseListeners(domElement: HTMLCanvasElement) {
+  function getMousePos(e: MouseEvent): { x: number; y: number } {
+    const rect = domElement.getBoundingClientRect();
+    return {
+      x: e.clientX - rect.left,
+      y: rect.bottom - e.clientY // Flip Y coordinate
+    };
+  }
+  
+  domElement.addEventListener('mousedown', (e) => {
+    isMouseDown = true;
+    const pos = getMousePos(e);
+    const dpr = window.devicePixelRatio;
+    iMouse.x = pos.x * dpr;
+    iMouse.y = pos.y * dpr;
+    iMouse.z = pos.x * dpr;
+    iMouse.w = pos.y * dpr;
+  });
+  
+  window.addEventListener('mousemove', (e) => {
+    if (!isMouseDown) return;
+    const pos = getMousePos(e);
+    const dpr = window.devicePixelRatio;
+    iMouse.x = pos.x * dpr;
+    iMouse.y = pos.y * dpr;
+  });
+  
+  window.addEventListener('mouseup', () => {
+    if (!isMouseDown) return;
+    isMouseDown = false;
+    iMouse.z = -Math.abs(iMouse.z);
+    iMouse.w = -Math.abs(iMouse.w);
+  });
+  
+  // Mobile touch support
+  domElement.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 0) return;
+    isMouseDown = true;
+    const touch = e.touches[0]!;
+    const rect = domElement.getBoundingClientRect();
+    const touchX = touch.clientX - rect.left;
+    const touchY = rect.bottom - touch.clientY;
+    const dpr = window.devicePixelRatio;
     
-    // 2. Programmatically center and scale OBJ to fit perfectly inside the 1.0 sphere
-    const box = new THREE.Box3().setFromObject(obj);
-    const boxSize = box.getSize(new THREE.Vector3());
-    const boxCenter = box.getCenter(new THREE.Vector3());
-    
-    // Position geometry at origin of parent group
-    obj.position.sub(boxCenter);
-    
-    // Scale model so it sits nicely inside the sphere core (diameter ~0.95 of 2.0)
-    const maxDim = Math.max(boxSize.x, boxSize.y, boxSize.z);
-    const scaleFactor = 0.95 / maxDim;
-    obj.scale.set(scaleFactor, scaleFactor, scaleFactor);
-    
-    // 3. Add to scene
-    cateyeInnerGroup.add(obj);
-  }, 
-  (xhr) => {
-    console.log(`Loading OBJ: ${Math.round((xhr.loaded / xhr.total) * 100)}%`);
-  },
-  (err) => {
-    console.error('Error loading OBJ file:', err);
+    iMouse.x = touchX * dpr;
+    iMouse.y = touchY * dpr;
+    iMouse.z = touchX * dpr;
+    iMouse.w = touchY * dpr;
+  });
+  
+  window.addEventListener('touchmove', (e) => {
+    if (!isMouseDown || e.touches.length === 0) return;
+    const touch = e.touches[0]!;
+    const rect = domElement.getBoundingClientRect();
+    const dpr = window.devicePixelRatio;
+    iMouse.x = (touch.clientX - rect.left) * dpr;
+    iMouse.y = (rect.bottom - touch.clientY) * dpr;
+  });
+  
+  window.addEventListener('touchend', () => {
+    isMouseDown = false;
+    iMouse.z = -Math.abs(iMouse.z);
+    iMouse.w = -Math.abs(iMouse.w);
   });
 }
 
 // --------------------------------------------------------------------------
-// Window Events
+// Window Events & Theme Controllers
 // --------------------------------------------------------------------------
 
 function onWindowResize() {
   const width = window.innerWidth;
   const height = window.innerHeight;
   
-  camera.aspect = width / height;
-  camera.updateProjectionMatrix();
-  
   renderer.setSize(width, height);
+  
+  const size = new THREE.Vector2();
+  renderer.getDrawingBufferSize(size);
+  shaderMaterial.uniforms.iResolution.value.set(
+    size.x,
+    size.y,
+    1.0
+  );
+}
+
+function applyTheme(theme: 'light' | 'dark') {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('gb-theme', theme);
 }
 
 // --------------------------------------------------------------------------
-// Frame Rendering Loop
+// Render Cycle Loop
 // --------------------------------------------------------------------------
 
-const clock = new THREE.Clock();
+const timer = new THREE.Timer();
 
-function animate() {
+function animate(timestamp: number) {
   requestAnimationFrame(animate);
   
-  const time = clock.getElapsedTime();
+  // Track elapsed animation time
+  timer.update(timestamp);
+  shaderMaterial.uniforms.iTime.value = timer.getElapsed();
   
-  // 1. Slow, realistic rotation of the entire glass marble (shell + vanes)
-  if (marbleGroup) {
-    marbleGroup.rotation.y = time * 0.25;
-    marbleGroup.rotation.x = time * 0.12;
-    
-    // Slow float height oscillation above the floor
-    marbleGroup.position.y = Math.sin(time * 0.85) * 0.05;
-  }
+  // Sync mouse uniform
+  shaderMaterial.uniforms.iMouse.value.copy(iMouse);
   
-  // 2. Render pass
-  controls.update();
   renderer.render(scene, camera);
 }
 
@@ -351,5 +501,5 @@ function animate() {
 
 window.addEventListener('DOMContentLoaded', () => {
   init();
-  animate();
+  requestAnimationFrame(animate);
 });
